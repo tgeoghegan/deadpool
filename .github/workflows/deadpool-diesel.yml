@@ -1,0 +1,124 @@
+defaults:
+  run:
+    working-directory: ./crates/deadpool-diesel
+env:
+  RUST_BACKTRACE: 1
+jobs:
+  check-integration:
+    name: Check integration
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@v1
+        with:
+          components: rustc,rust-std,cargo
+          toolchain: stable
+      - if: runner.os == 'Windows' && matrix.feature == 'mysql'
+        name: Install mysql (Windows)
+        run: |-
+          echo "MYSQLCLIENT_LIB_DIR=C:\Program Files\MySQL\MySQL Server 8.0\lib" >> $GITHUB_ENV
+          echo "MYSQLCLIENT_VERSION=8.0.40" >> $GITHUB_ENV
+          echo "C:\Program Files\MySQL\MySQL Server 8.0\lib" >> $GITHUB_PATH
+          echo "C:\Program Files\MySQL\MySQL Server 8.0\bin" >> $GITHUB_PATH
+          dir "C:\Program Files\MySQL\MySQL Server 8.0\lib"
+        shell: bash
+      - run: cargo check --features ${{ matrix.feature }}
+    strategy:
+      fail-fast: false
+      matrix:
+        feature:
+          - serde
+          - tracing
+          - rt_tokio_1
+          - rt_async-std_1
+          - mysql
+          - postgres
+          - sqlite
+        os:
+          - ubuntu-latest
+          - windows-2025
+  check-reexported-features:
+    name: Check re-exported features
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@v1
+        with:
+          components: rustc,rust-std,cargo
+          toolchain: stable
+      - uses: dcarbone/install-jq-action@v3
+      - uses: dcarbone/install-yq-action@v1
+      - run: ../../tools/check-reexported-features.sh
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@v1
+        with:
+          components: rustc,rust-std,cargo,clippy
+          toolchain: stable
+      - run: cargo clippy --no-deps --features serde,tracing,rt_tokio_1,rt_async-std_1,mysql,postgres,sqlite -- -D warnings
+  msrv:
+    name: MSRV
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@v1
+        with:
+          components: rustc,rust-std,cargo
+          toolchain: nightly
+      - uses: dtolnay/rust-toolchain@v1
+        with:
+          components: rustc,rust-std,cargo
+          toolchain: "1.84"
+      - run: ../../tools/cargo-update-minimal-versions.sh 1.84
+      - run: cargo check --features serde,tracing,rt_tokio_1,rt_async-std_1,mysql,postgres,sqlite
+  rustdoc:
+    name: Doc
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@v1
+        with:
+          components: rustc,rust-std,cargo
+          toolchain: stable
+      - run: cargo doc --no-deps --features serde,tracing,rt_tokio_1,rt_async-std_1,mysql,postgres,sqlite
+  rustfmt:
+    name: rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@v1
+        with:
+          components: rustc,rust-std,cargo,rustfmt
+          toolchain: stable
+      - run: cargo fmt --check
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    services: {}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@v1
+        with:
+          components: rustc,rust-std,cargo
+          toolchain: stable
+      - env: {}
+        run: cargo test --features serde,tracing,rt_tokio_1,sqlite
+name: deadpool-diesel
+"on":
+  pull_request:
+    branches:
+      - main
+    paths:
+      - crates/deadpool-diesel/**
+      - .github/workflows/deadpool-diesel.yml
+  push:
+    branches:
+      - main
+    paths:
+      - crates/deadpool-diesel/**
+      - .github/workflows/deadpool-diesel.yml
+    tags:
+      - deadpool-diesel-v*

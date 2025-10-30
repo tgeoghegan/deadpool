@@ -1,0 +1,43 @@
+[package]
+name = "deadpool-memcached"
+version = "0.4.0"
+edition = "2021"
+rust-version = "1.82"
+authors = [
+    "Toby Lawrence <toby@nuclearfurnace.com>",
+    "Michael P. Jung <michael.jung@terreon.de>",
+]
+description = "Dead simple async pool for memcached"
+keywords = ["async", "memcached", "pool"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/deadpool-rs/deadpool"
+readme = "README.md"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[features]
+default = ["tcp"]
+
+# Re-export of async-memcached features
+polonius = ["async-memcached/polonius"]
+tcp = ["async-memcached/tcp"]
+udp = ["async-memcached/udp"]
+
+[dependencies]
+async-memcached = { version = "0.5", default-features = false }
+deadpool = { path = "../deadpool", version = "0.12.0", default-features = false, features = [
+    "managed",
+] }
+# This crate doesn't directly depend on tokio but async-memcached 0.1.7
+# broke the build by forgetting to add the "net" feature to the tokio
+# dependency. Once async-memcached is fixed this dependency can be removed
+# again.
+tokio = { version = "1.29", default-features = false, features = ["net"] }
+
+[dev-dependencies]
+tokio = { version = "1.29", features = ["macros", "rt-multi-thread"] }
+
+[package.metadata.cargo-machete]
+ignored = ["tokio"]
